@@ -1,10 +1,12 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -12,9 +14,15 @@ import (
 	"github.com/jezek/xgb/xproto"
 	"github.com/jezek/xgbutil"
 	"github.com/jezek/xgbutil/keybind"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	_ = godotenv.Load()
+
+	timeout := flag.Duration("timeout", 90*time.Second, "auto-stop recording after this duration")
+	flag.Parse()
+
 	xu, err := xgbutil.NewConn()
 	if err != nil {
 		log.Fatalf("cannot connect to X11: %v", err)
@@ -34,11 +42,48 @@ func main() {
 		os.Exit(0)
 	}()
 
-	fmt.Println("Listening for Scroll_Lock — hold to record, release to stop. Ctrl+C to quit.")
+	fmt.Printf("Press Scroll_Lock to start/stop recording (auto-stop after %s). Ctrl+C to quit.\n", *timeout)
 
-	var rec Recorder
+	var (
+		rec       Recorder
+		mu        sync.Mutex
+		recording bool
+		timer     *time.Timer
+	)
+
+	stopRecording := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if !recording {
+			return
+		}
+		if timer != nil {
+			timer.Stop()
+			timer = nil
+		}
+		recording = false
+		path, err := rec.Stop()
+		if err != nil {
+			log.Printf("recorder stop: %v", err)
+			notifyError("Recording failed", err.Error())
+			return
+		}
+		fmt.Println(path)
+		notifyInfo("Recording stopped", "Transcribing…")
+		go func() {
+			notifyInfo("Transcribing…", path)
+			text, err := transcribe(path)
+			if err != nil {
+				log.Printf("transcribe: %v", err)
+				notifyError("Transcription failed", err.Error())
+				return
+			}
+			fmt.Println(text)
+			notifyInfo("Transcription done", text)
+		}()
+	}
+
 	var pending xgb.Event
-	pressed := false
 
 	for {
 		var ev xgb.Event
@@ -59,34 +104,50 @@ func main() {
 
 		switch e := ev.(type) {
 		case xproto.KeyPressEvent:
-			if pressed {
-				break // auto-repeat, ignore
-			}
-			pressed = true
-			sym := keybind.LookupString(xu, e.State, e.Detail)
-			fmt.Printf("[%s] KEYDOWN  key=%q state=0x%04x keycode=%d\n",
-				timestamp(), sym, e.State, e.Detail)
-			if err := rec.Start(); err != nil {
-				log.Printf("recorder start: %v", err)
-			}
+			// Ignore — we act on key release only.
+			_ = e
 
 		case xproto.KeyReleaseEvent:
+			// During an active grab all keyboard events are delivered to us;
+			// ignore releases that aren't Scroll_Lock.
+			if !containsCode(codes, e.Detail) {
+				break
+			}
+
 			// Detect auto-repeat: X11 queues KeyRelease+KeyPress as a pair.
 			next, _ := xu.Conn().PollForEvent()
 			if kp, ok := next.(xproto.KeyPressEvent); ok && kp.Detail == e.Detail {
 				break // auto-repeat pair, discard both
 			}
 			if next != nil {
-				pending = next // unrelated event, process next iteration
+				pending = next
 			}
-			pressed = false
+
 			sym := keybind.LookupString(xu, e.State, e.Detail)
-			fmt.Printf("[%s] KEYUP    key=%q state=0x%04x keycode=%d\n",
+			fmt.Printf("[%s] KEY      key=%q state=0x%04x keycode=%d\n",
 				timestamp(), sym, e.State, e.Detail)
-			if path, err := rec.Stop(); err != nil {
-				log.Printf("recorder stop: %v", err)
+
+			mu.Lock()
+			if !recording {
+				recording = true
+				mu.Unlock()
+				if err := rec.Start(); err != nil {
+					log.Printf("recorder start: %v", err)
+					notifyError("Recording failed to start", err.Error())
+					mu.Lock()
+					recording = false
+					mu.Unlock()
+					break
+				}
+				fmt.Printf("[%s] Recording started (auto-stop in %s)\n", timestamp(), *timeout)
+				notifyInfo("Recording started", fmt.Sprintf("Auto-stop in %s", *timeout))
+				timer = time.AfterFunc(*timeout, func() {
+					fmt.Printf("[%s] Auto-stop timeout reached\n", timestamp())
+					stopRecording()
+				})
 			} else {
-				fmt.Println(path)
+				mu.Unlock()
+				stopRecording()
 			}
 		}
 	}

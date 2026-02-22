@@ -32,6 +32,16 @@ func grabKey(xu *xgbutil.XUtil, name string) []xproto.Keycode {
 	return codes
 }
 
+// containsCode reports whether codes contains the given keycode.
+func containsCode(codes []xproto.Keycode, code xproto.Keycode) bool {
+	for _, c := range codes {
+		if c == code {
+			return true
+		}
+	}
+	return false
+}
+
 // ungrabKeys releases previously grabbed keycodes.
 func ungrabKeys(xu *xgbutil.XUtil, codes []xproto.Keycode) {
 	root := xu.RootWin()
