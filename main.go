@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/getlantern/systray"
 	"github.com/jezek/xgb"
 	"github.com/jezek/xgb/xproto"
 	"github.com/jezek/xgbutil"
@@ -24,6 +25,13 @@ func main() {
 	timeout := flag.Duration("timeout", 90*time.Second, "auto-stop recording after this duration")
 	flag.Parse()
 
+	// systray.Run must own the main goroutine (GTK requirement on Linux).
+	// Run the app logic in a background goroutine.
+	go run(timeout)
+	systray.Run(onTrayReady, onTrayExit)
+}
+
+func run(timeout *time.Duration) {
 	xu, err := xgbutil.NewConn()
 	if err != nil {
 		log.Fatalf("cannot connect to X11: %v", err)
@@ -40,6 +48,7 @@ func main() {
 		<-quit
 		fmt.Println("\nStopping — ungrabbing Scroll_Lock.")
 		ungrabKeys(xu, codes)
+		systray.Quit()
 		os.Exit(0)
 	}()
 
@@ -66,27 +75,36 @@ func main() {
 		path, err := rec.Stop()
 		if err != nil {
 			log.Printf("recorder stop: %v", err)
+			setTrayState(StateError)
 			notifyError("🔴 Recording failed", err.Error())
 			return
 		}
 		fmt.Println(path)
+		setTrayState(StateTranscribing)
 		notifyInfo("⏹️ Recording stopped", "Transcribing…")
 		go func() {
 			notifyInfo("⏳ Transcribing…", path)
 			text, err := transcribe(path)
 			if err != nil {
 				log.Printf("transcribe: %v", err)
+				setTrayState(StateError)
 				notifyError("❌ Transcription failed", err.Error())
+				// revert to idle after showing error
+				time.AfterFunc(4*time.Second, func() { setTrayState(StateIdle) })
 				return
 			}
 			text = strings.TrimSpace(text)
 			fmt.Println(text)
 			if err := toClipboard(text); err != nil {
 				log.Printf("clipboard: %v", err)
+				setTrayState(StateError)
 				notifyError("❌ Clipboard error", err.Error())
+				time.AfterFunc(4*time.Second, func() { setTrayState(StateIdle) })
 				return
 			}
+			setTrayState(StateDone)
 			notifyInfo("📋 Copied to clipboard", preview(text))
+			time.AfterFunc(3*time.Second, func() { setTrayState(StateIdle) })
 		}()
 	}
 
@@ -140,12 +158,15 @@ func main() {
 				mu.Unlock()
 				if err := rec.Start(); err != nil {
 					log.Printf("recorder start: %v", err)
+					setTrayState(StateError)
 					notifyError("🔴 Recording failed to start", err.Error())
+					time.AfterFunc(4*time.Second, func() { setTrayState(StateIdle) })
 					mu.Lock()
 					recording = false
 					mu.Unlock()
 					break
 				}
+				setTrayState(StateRecording)
 				fmt.Printf("[%s] Recording started (auto-stop in %s)\n", timestamp(), *timeout)
 				notifyInfo("🎙️ Recording started", fmt.Sprintf("Auto-stop in %s", *timeout))
 				timer = time.AfterFunc(*timeout, func() {
