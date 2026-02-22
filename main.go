@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -16,22 +15,44 @@ import (
 	"github.com/jezek/xgb/xproto"
 	"github.com/jezek/xgbutil"
 	"github.com/jezek/xgbutil/keybind"
-	"github.com/joho/godotenv"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func main() {
-	_ = godotenv.Load()
+	root := &cobra.Command{
+		Use:   "shutupandtype-x11",
+		Short: "Press Scroll_Lock to record and transcribe speech to clipboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			initConfig()
+			enforceInstance()
+			go run()
+			systray.Run(onTrayReady, onTrayExit)
+			return nil
+		},
+		SilenceUsage: true,
+	}
 
-	timeout := flag.Duration("timeout", 90*time.Second, "auto-stop recording after this duration")
-	flag.Parse()
+	root.Flags().String("timeout", "90s", "auto-stop recording after this duration")
+	_ = viper.BindPFlag("timeout", root.Flags().Lookup("timeout"))
 
-	// systray.Run must own the main goroutine (GTK requirement on Linux).
-	// Run the app logic in a background goroutine.
-	go run(timeout)
-	systray.Run(onTrayReady, onTrayExit)
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
 
-func run(timeout *time.Duration) {
+func enforceInstance() {
+	f, err := os.OpenFile("/tmp/shutupandtype.lock", os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		log.Fatalf("cannot open lock file: %v", err)
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		log.Fatal("another instance is already running")
+	}
+	// intentionally not closing — lock held for process lifetime
+}
+
+func run() {
 	xu, err := xgbutil.NewConn()
 	if err != nil {
 		log.Fatalf("cannot connect to X11: %v", err)
@@ -39,8 +60,9 @@ func run(timeout *time.Duration) {
 	defer xu.Conn().Close()
 
 	keybind.Initialize(xu)
-
 	codes := grabKey(xu, "Scroll_Lock")
+
+	timeout := cfgTimeout()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -52,7 +74,7 @@ func run(timeout *time.Duration) {
 		os.Exit(0)
 	}()
 
-	fmt.Printf("Press Scroll_Lock to start/stop recording (auto-stop after %s). Ctrl+C to quit.\n", *timeout)
+	fmt.Printf("Press Scroll_Lock to start/stop recording (auto-stop after %s). Ctrl+C to quit.\n", timeout)
 
 	var (
 		rec       Recorder
@@ -89,7 +111,6 @@ func run(timeout *time.Duration) {
 				log.Printf("transcribe: %v", err)
 				setTrayState(StateError)
 				notifyError("❌ Transcription failed", err.Error())
-				// revert to idle after showing error
 				time.AfterFunc(4*time.Second, func() { setTrayState(StateIdle) })
 				return
 			}
@@ -129,20 +150,15 @@ func run(timeout *time.Duration) {
 
 		switch e := ev.(type) {
 		case xproto.KeyPressEvent:
-			// Ignore — we act on key release only.
 			_ = e
 
 		case xproto.KeyReleaseEvent:
-			// During an active grab all keyboard events are delivered to us;
-			// ignore releases that aren't Scroll_Lock.
 			if !containsCode(codes, e.Detail) {
 				break
 			}
-
-			// Detect auto-repeat: X11 queues KeyRelease+KeyPress as a pair.
 			next, _ := xu.Conn().PollForEvent()
 			if kp, ok := next.(xproto.KeyPressEvent); ok && kp.Detail == e.Detail {
-				break // auto-repeat pair, discard both
+				break
 			}
 			if next != nil {
 				pending = next
@@ -167,9 +183,9 @@ func run(timeout *time.Duration) {
 					break
 				}
 				setTrayState(StateRecording)
-				fmt.Printf("[%s] Recording started (auto-stop in %s)\n", timestamp(), *timeout)
-				notifyInfo("🎙️ Recording started", fmt.Sprintf("Auto-stop in %s", *timeout))
-				timer = time.AfterFunc(*timeout, func() {
+				fmt.Printf("[%s] Recording started (auto-stop in %s)\n", timestamp(), timeout)
+				notifyInfo("🎙️ Recording started", fmt.Sprintf("Auto-stop in %s", timeout))
+				timer = time.AfterFunc(timeout, func() {
 					fmt.Printf("[%s] Auto-stop timeout reached\n", timestamp())
 					stopRecording()
 				})

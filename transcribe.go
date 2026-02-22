@@ -9,17 +9,16 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/spf13/viper"
 )
 
 func transcribe(audioPath string) (string, error) {
-	apiKey := os.Getenv("OPENAI_API_KEY")
+	apiKey := viper.GetString("openai_api_key")
 	if apiKey == "" {
-		return "", fmt.Errorf("OPENAI_API_KEY not set")
+		return "", fmt.Errorf("openai_api_key not configured")
 	}
-	model := os.Getenv("OPENAI_MODEL_STT")
-	if model == "" {
-		model = "whisper-1"
-	}
+	model := viper.GetString("openai_model_stt")
 
 	f, err := os.Open(audioPath)
 	if err != nil {
