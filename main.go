@@ -22,42 +22,21 @@ func main() {
 	defer xu.Conn().Close()
 
 	keybind.Initialize(xu)
-	root := xu.RootWin()
 
-	codes := keybind.StrToKeycodes(xu, "Scroll_Lock")
-	if len(codes) == 0 {
-		log.Fatal("no keycode found for Scroll_Lock")
-	}
-
-	// Passive grab on root with AnyModifier — captures the key regardless of
-	// other held modifiers. ownerEvents=false routes events only to us.
-	for _, code := range codes {
-		if err := xproto.GrabKeyChecked(
-			xu.Conn(),
-			false,
-			root,
-			xproto.ModMaskAny,
-			code,
-			xproto.GrabModeAsync,
-			xproto.GrabModeAsync,
-		).Check(); err != nil {
-			log.Fatalf("GrabKey Scroll_Lock (keycode %d): %v", code, err)
-		}
-	}
+	codes := grabKey(xu, "Scroll_Lock")
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-quit
 		fmt.Println("\nStopping — ungrabbing Scroll_Lock.")
-		for _, code := range codes {
-			xproto.UngrabKey(xu.Conn(), code, root, xproto.ModMaskAny)
-		}
+		ungrabKeys(xu, codes)
 		os.Exit(0)
 	}()
 
-	fmt.Println("Listening for Scroll_Lock (native behavior blocked) — press Ctrl+C to stop.")
+	fmt.Println("Listening for Scroll_Lock — hold to record, release to stop. Ctrl+C to quit.")
 
+	var rec Recorder
 	var pending xgb.Event
 	pressed := false
 
@@ -87,6 +66,9 @@ func main() {
 			sym := keybind.LookupString(xu, e.State, e.Detail)
 			fmt.Printf("[%s] KEYDOWN  key=%q state=0x%04x keycode=%d\n",
 				timestamp(), sym, e.State, e.Detail)
+			if err := rec.Start(); err != nil {
+				log.Printf("recorder start: %v", err)
+			}
 
 		case xproto.KeyReleaseEvent:
 			// Detect auto-repeat: X11 queues KeyRelease+KeyPress as a pair.
@@ -101,6 +83,11 @@ func main() {
 			sym := keybind.LookupString(xu, e.State, e.Detail)
 			fmt.Printf("[%s] KEYUP    key=%q state=0x%04x keycode=%d\n",
 				timestamp(), sym, e.State, e.Detail)
+			if path, err := rec.Stop(); err != nil {
+				log.Printf("recorder stop: %v", err)
+			} else {
+				fmt.Println(path)
+			}
 		}
 	}
 }
