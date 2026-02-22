@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -65,21 +66,27 @@ func main() {
 		path, err := rec.Stop()
 		if err != nil {
 			log.Printf("recorder stop: %v", err)
-			notifyError("Recording failed", err.Error())
+			notifyError("🔴 Recording failed", err.Error())
 			return
 		}
 		fmt.Println(path)
-		notifyInfo("Recording stopped", "Transcribing…")
+		notifyInfo("⏹️ Recording stopped", "Transcribing…")
 		go func() {
-			notifyInfo("Transcribing…", path)
+			notifyInfo("⏳ Transcribing…", path)
 			text, err := transcribe(path)
 			if err != nil {
 				log.Printf("transcribe: %v", err)
-				notifyError("Transcription failed", err.Error())
+				notifyError("❌ Transcription failed", err.Error())
 				return
 			}
+			text = strings.TrimSpace(text)
 			fmt.Println(text)
-			notifyInfo("Transcription done", text)
+			if err := toClipboard(text); err != nil {
+				log.Printf("clipboard: %v", err)
+				notifyError("❌ Clipboard error", err.Error())
+				return
+			}
+			notifyInfo("📋 Copied to clipboard", preview(text))
 		}()
 	}
 
@@ -133,14 +140,14 @@ func main() {
 				mu.Unlock()
 				if err := rec.Start(); err != nil {
 					log.Printf("recorder start: %v", err)
-					notifyError("Recording failed to start", err.Error())
+					notifyError("🔴 Recording failed to start", err.Error())
 					mu.Lock()
 					recording = false
 					mu.Unlock()
 					break
 				}
 				fmt.Printf("[%s] Recording started (auto-stop in %s)\n", timestamp(), *timeout)
-				notifyInfo("Recording started", fmt.Sprintf("Auto-stop in %s", *timeout))
+				notifyInfo("🎙️ Recording started", fmt.Sprintf("Auto-stop in %s", *timeout))
 				timer = time.AfterFunc(*timeout, func() {
 					fmt.Printf("[%s] Auto-stop timeout reached\n", timestamp())
 					stopRecording()
