@@ -38,6 +38,10 @@ func setTrayState(s TrayState) {
 	}
 }
 
+func setTrayTooltip(text string) {
+	systray.SetTooltip(text)
+}
+
 func circleIcon(r, g, b uint8) []byte {
 	const size = 22
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
@@ -67,8 +71,6 @@ func circleIcon(r, g, b uint8) []byte {
 
 func onTrayReady() {
 	initTrayIcons()
-	systray.SetTooltip("ShutUpAndType")
-	systray.SetTooltip("Scroll_Lock to start/stop recording")
 	setTrayState(StateIdle)
 
 	mQuit := systray.AddMenuItem("Quit", "Stop shutupandtype")
