@@ -12,14 +12,28 @@ A tray icon shows the current state:
 | 🟢 Green | Done — text copied |
 | 🟠 Orange | Error |
 
-## Prerequisites
+## Installation
+
+### From release (deb)
+
+Download the `.deb` from the [releases page](https://github.com/harnyk/shutupandtype-x11/releases) and install:
 
 ```sh
-sudo apt install ffmpeg libnotify-bin xclip \
+sudo apt install ./shutupandtype-x11_<version>_amd64.deb
+```
+
+The package declares all required runtime dependencies (`ffmpeg`, `xclip`, `libayatana-appindicator3-1`), so `apt` will pull them in automatically.
+
+### From source
+
+Build-time dependencies:
+
+```sh
+sudo apt install ffmpeg xclip \
   libayatana-appindicator3-dev libgtk-3-dev
 ```
 
-## Installation
+Then install with Go:
 
 ```sh
 go install github.com/harnyk/shutupandtype-x11@latest

@@ -1,0 +1,60 @@
+version: 2
+
+project_name: shutupandtype-x11
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: shutupandtype-x11
+    binary: shutupandtype-x11
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+nfpms:
+  - id: deb
+    package_name: shutupandtype-x11
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Arch }}"
+    vendor: github.com/harnyk
+    homepage: https://github.com/harnyk/shutupandtype-x11
+    maintainer: harnyk
+    description: >
+      Push-to-talk dictation tool for X11.
+      Hold a hotkey to record audio, release to transcribe via OpenAI Whisper
+      and paste the result at the cursor.
+    license: MIT
+    formats:
+      - deb
+    # Runtime dependencies
+    dependencies:
+      - ffmpeg
+      - xclip
+      - libayatana-appindicator3-1
+    suggests:
+      - wl-clipboard
+    contents:
+      - src: assets/shutupandtype-x11.desktop
+        dst: /usr/share/applications/shutupandtype-x11.desktop
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
