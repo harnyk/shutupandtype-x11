@@ -14,8 +14,24 @@ import (
 const hotkeySymName = "F12"
 const hotkeyMods = xproto.ModMaskControl | xproto.ModMaskShift
 
-// listenHotkey grabs Ctrl+Shift+F12 globally (with ModMaskAny so NumLock /
-// CapsLock are ignored) and calls onPress on each key-down event.
+// ignoredModMasks are the extra modifier bits to tolerate on top of hotkeyMods
+// (NumLock=Mod2, CapsLock=Lock, ScrollLock=Mod5 and their combos).
+// Grabbing each combo explicitly (instead of ModMaskAny) ensures bare F12
+// and other unrelated combos are NOT intercepted.
+var ignoredModMasks = []uint16{
+	0,
+	xproto.ModMaskLock,                   // CapsLock
+	xproto.ModMask2,                      // NumLock
+	xproto.ModMask5,                      // ScrollLock
+	xproto.ModMaskLock | xproto.ModMask2, // CapsLock+NumLock
+	xproto.ModMaskLock | xproto.ModMask5, // CapsLock+ScrollLock
+	xproto.ModMask2 | xproto.ModMask5,    // NumLock+ScrollLock
+	xproto.ModMaskLock | xproto.ModMask2 | xproto.ModMask5, // all three
+}
+
+// listenHotkey grabs Ctrl+Shift+F12 globally and calls onPress on each
+// key-down event.  Only the exact modifier set (plus NumLock/CapsLock/
+// ScrollLock variants) is grabbed, so bare F12 reaches other applications.
 // Returns an unregister func that releases the grab and stops the loop.
 func listenHotkey(onPress func()) (unregister func()) {
 	xu, err := xgbutil.NewConn()
@@ -30,16 +46,19 @@ func listenHotkey(onPress func()) (unregister func()) {
 	}
 	root := xu.RootWin()
 	for _, code := range codes {
-		if err := xproto.GrabKeyChecked(
-			xu.Conn(),
-			false,
-			root,
-			xproto.ModMaskAny, // ignore NumLock, CapsLock, etc.
-			code,
-			xproto.GrabModeAsync,
-			xproto.GrabModeAsync,
-		).Check(); err != nil {
-			log.Fatalf("hotkey: GrabKey F12 (keycode %d): %v", code, err)
+		for _, extra := range ignoredModMasks {
+			mods := hotkeyMods | extra
+			if err := xproto.GrabKeyChecked(
+				xu.Conn(),
+				false,
+				root,
+				mods,
+				code,
+				xproto.GrabModeAsync,
+				xproto.GrabModeAsync,
+			).Check(); err != nil {
+				log.Fatalf("hotkey: GrabKey F12 (keycode %d, mods %d): %v", code, mods, err)
+			}
 		}
 	}
 
@@ -92,7 +111,9 @@ func listenHotkey(onPress func()) (unregister func()) {
 
 	return func() {
 		for _, code := range codes {
-			xproto.UngrabKey(xu.Conn(), code, root, xproto.ModMaskAny)
+			for _, extra := range ignoredModMasks {
+				xproto.UngrabKey(xu.Conn(), code, root, hotkeyMods|extra)
+			}
 		}
 		xu.Conn().Close() // unblocks WaitForEvent → goroutine exits
 		<-done
