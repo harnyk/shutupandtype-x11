@@ -98,8 +98,11 @@ func run() {
 				time.AfterFunc(4*time.Second, func() { setTrayState(StateIdle) })
 				return
 			}
+			if err := typeShiftInsert(); err != nil {
+				log.Printf("typeShiftInsert: %v", err)
+			}
 			setTrayState(StateDone)
-			setTrayTooltip("Copied: " + preview(text))
+			setTrayTooltip("Typed: " + preview(text))
 			time.AfterFunc(3*time.Second, func() { setTrayState(StateIdle) })
 		}()
 	}

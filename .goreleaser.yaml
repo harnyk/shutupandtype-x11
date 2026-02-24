@@ -41,9 +41,8 @@ nfpms:
     dependencies:
       - ffmpeg
       - xclip
+      - xdotool
       - libayatana-appindicator3-1
-    suggests:
-      - wl-clipboard
     contents:
       - src: assets/shutupandtype-x11.desktop
         dst: /usr/share/applications/shutupandtype-x11.desktop

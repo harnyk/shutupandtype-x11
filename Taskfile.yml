@@ -1,0 +1,16 @@
+version: "3"
+
+tasks:
+  snapshot:
+    desc: Build a local snapshot with goreleaser
+    cmds:
+      - goreleaser release --snapshot --clean
+
+  install:
+    desc: Install the latest snapshot deb with apt (resolves dependencies)
+    deps:
+      - snapshot
+    cmds:
+      - sudo apt remove shutupandtype-x11
+      - sudo apt --fix-broken install ./dist/shutupandtype-x11_*.deb
+  
