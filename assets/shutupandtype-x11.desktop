@@ -2,7 +2,7 @@
 Name=Shut Up and Type
 Comment=Push-to-talk dictation via OpenAI Whisper
 Exec=shutupandtype-x11
-Icon=audio-input-microphone
+Icon=shutupandtype-x11
 Terminal=false
 Type=Application
 Categories=Utility;Accessibility;

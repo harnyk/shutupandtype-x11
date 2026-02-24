@@ -46,6 +46,8 @@ nfpms:
     contents:
       - src: assets/shutupandtype-x11.desktop
         dst: /usr/share/applications/shutupandtype-x11.desktop
+      - src: icon.png
+        dst: /usr/share/pixmaps/shutupandtype-x11.png
 
 checksum:
   name_template: "checksums.txt"
