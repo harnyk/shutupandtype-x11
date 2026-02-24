@@ -1,6 +1,22 @@
 [Desktop Entry]
 Name=Shut Up and Type
+Name[ru]=Заткнись и печатай
+Name[uk]=Замовкни і друкуй
+Name[pl]=Zamknij się i pisz
+Name[pt]=Cale a boca e digite
+Name[es]=Cállate y escribe
+Name[fr]=Tais-toi et tape
+Name[de]=Halt die Klappe und tippe
+Name[af]=Bly stil en tik
 Comment=Push-to-talk dictation via OpenAI Whisper
+Comment[ru]=Голосовой ввод через OpenAI Whisper
+Comment[uk]=Голосове введення через OpenAI Whisper
+Comment[pl]=Dyktowanie głosowe przez OpenAI Whisper
+Comment[pt]=Ditado por voz via OpenAI Whisper
+Comment[es]=Dictado por voz mediante OpenAI Whisper
+Comment[fr]=Dictée vocale via OpenAI Whisper
+Comment[de]=Spracheingabe über OpenAI Whisper
+Comment[af]=Steminsette via OpenAI Whisper
 Exec=shutupandtype-x11
 Icon=shutupandtype-x11
 Terminal=false

@@ -1,28 +1,16 @@
 # shutupandtype-x11
 
-Press **Scroll Lock** once to start recording from your mic. Press it again to stop. The audio is transcribed via OpenAI Whisper and the result is copied to your clipboard.
+<p align="center">
+  <img src="icon.png" alt="shutupandtype-x11" width="128" />
+</p>
 
-A tray icon shows the current state:
-
-| Color | State |
-|-------|-------|
-| ⚫ Gray | Idle — waiting |
-| 🔴 Red | Recording |
-| 🟡 Amber | Transcribing |
-| 🟢 Green | Done — text copied |
-| 🟠 Orange | Error |
+Press **Ctrl+Shift+F12** once to start recording from your mic. Press it again to stop. The audio is transcribed via OpenAI Whisper and the result is copied to your clipboard.
 
 ## Installation
 
 ### From release (deb)
 
-Download the `.deb` from the [releases page](https://github.com/harnyk/shutupandtype-x11/releases) and install:
-
-```sh
-sudo apt install ./shutupandtype-x11_<version>_amd64.deb
-```
-
-The package declares all required runtime dependencies (`ffmpeg`, `xclip`, `libayatana-appindicator3-1`), so `apt` will pull them in automatically.
+TODO
 
 ### From source
 
@@ -67,7 +55,7 @@ shutupandtype-x11 --timeout 2m
 shutupandtype-x11
 ```
 
-- Press **Scroll Lock** → recording starts (tray turns red)
-- Press **Scroll Lock** again → recording stops, transcription begins (tray turns amber)
+- Press **Ctrl+Shift+F12** → recording starts (tray turns red)
+- Press **Ctrl+Shift+F12** again → recording stops, transcription begins (tray turns amber)
 - Transcribed text is copied to clipboard and a notification shows a preview (tray turns green)
 - Tray returns to gray after 3 seconds
