@@ -82,11 +82,21 @@ func run() {
 		setTrayTooltip("Transcribing…")
 		go func() {
 			text, err := transcribe(path)
+			resetIfIdle := func(d time.Duration) {
+				time.AfterFunc(d, func() {
+					mu.Lock()
+					idle := !recording
+					mu.Unlock()
+					if idle {
+						setTrayState(StateIdle)
+					}
+				})
+			}
 			if err != nil {
 				log.Printf("transcribe: %v", err)
 				setTrayState(StateError)
 				setTrayTooltip("Transcription failed: " + err.Error())
-				time.AfterFunc(4*time.Second, func() { setTrayState(StateIdle) })
+				resetIfIdle(4 * time.Second)
 				return
 			}
 			text = strings.TrimSpace(text)
@@ -95,7 +105,7 @@ func run() {
 				log.Printf("clipboard: %v", err)
 				setTrayState(StateError)
 				setTrayTooltip("Clipboard error: " + err.Error())
-				time.AfterFunc(4*time.Second, func() { setTrayState(StateIdle) })
+				resetIfIdle(4 * time.Second)
 				return
 			}
 			if err := typeShiftInsert(); err != nil {
@@ -103,7 +113,7 @@ func run() {
 			}
 			setTrayState(StateDone)
 			setTrayTooltip("Typed: " + preview(text))
-			time.AfterFunc(3*time.Second, func() { setTrayState(StateIdle) })
+			resetIfIdle(3 * time.Second)
 		}()
 	}
 
