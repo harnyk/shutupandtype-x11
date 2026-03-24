@@ -22,5 +22,5 @@ Icon=shutupandtype-x11
 Terminal=false
 Type=Application
 Categories=Utility;Accessibility;
-Keywords=dictation;voice;speech;transcription;whisper;
+Keywords=dictation;voice;speech;transcription;whisper;suat;
 StartupNotify=false
