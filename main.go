@@ -17,6 +17,8 @@ import (
 )
 
 func main() {
+	ensureGUIPath()
+
 	root := &cobra.Command{
 		Use:   "shutupandtype-x11",
 		Short: "Hotkey to record and transcribe speech to clipboard",

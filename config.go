@@ -84,15 +84,17 @@ func validateSTTConfig() error {
 		}
 		return nil
 	case "whisper":
-		bin := viper.GetString("whisper_bin")
+		bin := resolveBin(viper.GetString("whisper_bin"))
 		if bin == "" {
 			return fmt.Errorf("whisper_bin not configured")
 		}
 		if _, err := exec.LookPath(bin); err != nil {
 			if _, err2 := os.Stat(bin); err2 != nil {
-				return fmt.Errorf("whisper_bin %q not found: %v", bin, err)
+				return fmt.Errorf("whisper_bin %q not found: %v (GUI apps need Homebrew on PATH — restart after update, or set an absolute path)", bin, err)
 			}
 		}
+		// persist resolved absolute path for the process
+		viper.Set("whisper_bin", bin)
 		model := expandPath(viper.GetString("whisper_model"))
 		if model == "" {
 			return fmt.Errorf("whisper_model not configured")
