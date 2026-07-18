@@ -24,18 +24,3 @@ func toClipboard(text string) error {
 	}
 	return nil
 }
-
-// typeShiftInsert synthesizes a Shift+Insert keypress via xdotool so the
-// transcribed text is pasted into the focused window right after being copied.
-func typeShiftInsert() error {
-	return exec.Command("xdotool", "key", "--clearmodifiers", "shift+Insert").Run()
-}
-
-// preview returns the first 50 runes of s, with "…" appended if truncated.
-func preview(s string) string {
-	runes := []rune(s)
-	if len(runes) <= 50 {
-		return s
-	}
-	return string(runes[:50]) + "…"
-}
