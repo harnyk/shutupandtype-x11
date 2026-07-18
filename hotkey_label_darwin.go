@@ -1,5 +1,5 @@
 package main
 
 func hotkeyLabel() string {
-	return "Cmd+Shift+F12"
+	return "Ctrl+Shift+F12"
 }

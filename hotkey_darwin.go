@@ -6,10 +6,10 @@ import (
 	"golang.design/x/hotkey"
 )
 
-// listenHotkey registers Cmd+Shift+F12 globally and calls onPress on each
+// listenHotkey registers Ctrl+Shift+F12 globally and calls onPress on each
 // key-down. Requires Accessibility permission for this process.
 func listenHotkey(onPress func()) (unregister func()) {
-	hk := hotkey.New([]hotkey.Modifier{hotkey.ModCmd, hotkey.ModShift}, hotkey.KeyF12)
+	hk := hotkey.New([]hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift}, hotkey.KeyF12)
 	if err := hk.Register(); err != nil {
 		log.Fatalf("hotkey: register %s failed (grant Accessibility to the terminal/app): %v", hotkeyLabel(), err)
 	}

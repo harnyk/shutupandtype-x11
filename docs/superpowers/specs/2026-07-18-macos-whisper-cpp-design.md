@@ -18,7 +18,7 @@ Run shutupandtype on macOS with the same push-to-talk UX as Linux, and support a
 | Model management | User-provided `whisper_model` path now; auto-download later |
 | Repo / binary name | Keep `shutupandtype-x11`; no rename |
 | Structure | Thin `*_linux.go` / `*_darwin.go` files + shared `Transcriber` interface |
-| Hotkey | Linux: Ctrl+Shift+F12. macOS: **Cmd+Shift+F12** |
+| Hotkey | Linux: Ctrl+Shift+F12. macOS: **Ctrl+Shift+F12** |
 | Suggested local model | `ggml-small-q5_1.bin` (~181MB, multilingual, fine for Russian on Apple Silicon) |
 
 ## Architecture
@@ -29,7 +29,7 @@ Build with Go filename suffixes (`_linux.go`, `_darwin.go`). Shared orchestratio
 
 | Concern | Linux | macOS (MVP) |
 |---------|-------|-------------|
-| Hotkey | X11 `GrabKey` (current `grab.go`) | In-process global hotkey (Cmd+Shift+F12); requires Accessibility |
+| Hotkey | X11 `GrabKey` (current `grab.go`) | In-process global hotkey (Ctrl+Shift+F12); requires Accessibility |
 | Recorder | `ffmpeg -f alsa -i default` | `ffmpeg -f avfoundation -i :0` (default mic) |
 | Clipboard | `xclip` primary + clipboard | `pbcopy` |
 | Paste | `xdotool` Shift+Insert | `osascript` Cmd+V via System Events |
@@ -143,7 +143,7 @@ Temp audio files: leave as today (no aggressive cleanup required in MVP).
 
 - Unit: whisper stdout trimming / empty output handling  
 - Manual: Linux `openai` + `whisper`; macOS `whisper` + Cmd+V paste  
-- Confirm Linux Ctrl+Shift+F12 and macOS Cmd+Shift+F12  
+- Confirm Ctrl+Shift+F12 on Linux and macOS  
 
 ## Out of scope (MVP)
 

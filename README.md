@@ -9,7 +9,7 @@ Press a hotkey to start recording from your mic. Press it again to stop. Audio i
 | OS | Hotkey | Paste |
 |----|--------|-------|
 | Linux (X11) | **Ctrl+Shift+F12** | auto via Shift+Insert |
-| macOS | **Cmd+Shift+F12** | auto via Cmd+V |
+| macOS | **Ctrl+Shift+F12** | auto via Cmd+V |
 
 ## Installation
 
