@@ -66,6 +66,11 @@ EOF
 # Clear quarantine so first launch is less painful
 xattr -dr com.apple.quarantine "$APP_DIR" 2>/dev/null || true
 
+# Ad-hoc sign with a stable identifier so Accessibility TCC survives rebuilds better.
+codesign --force --deep --sign - --identifier com.harnyk.shutupandtype "$APP_DIR" 2>/dev/null || true
+
 echo "Installed: $APP_DIR"
 echo "Open with: open \"$APP_DIR\""
 echo "Then grant Accessibility + Microphone to ${APP_NAME} in System Settings."
+echo "If it won't start after a rebuild: remove ${APP_NAME} from Accessibility, then add it again."
+
