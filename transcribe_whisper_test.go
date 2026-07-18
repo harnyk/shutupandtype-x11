@@ -13,9 +13,9 @@ func TestBuildWhisperArgs_withLanguage(t *testing.T) {
 	}
 }
 
-func TestBuildWhisperArgs_noLanguage(t *testing.T) {
+func TestBuildWhisperArgs_emptyLanguageUsesAuto(t *testing.T) {
 	args := buildWhisperArgs("/m.bin", "/a.wav", "")
-	want := []string{"-m", "/m.bin", "-f", "/a.wav", "-nt", "-np"}
+	want := []string{"-m", "/m.bin", "-f", "/a.wav", "-l", "auto", "-nt", "-np"}
 	if strings.Join(args, " ") != strings.Join(want, " ") {
 		t.Fatalf("got %v want %v", args, want)
 	}

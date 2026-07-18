@@ -12,11 +12,10 @@ type whisperTranscriber struct {
 }
 
 func buildWhisperArgs(model, audio, lang string) []string {
-	args := []string{"-m", model, "-f", audio}
-	if lang != "" {
-		args = append(args, "-l", lang)
+	if lang == "" {
+		lang = "auto"
 	}
-	return append(args, "-nt", "-np")
+	return []string{"-m", model, "-f", audio, "-l", lang, "-nt", "-np"}
 }
 
 func parseWhisperStdout(s string) string {

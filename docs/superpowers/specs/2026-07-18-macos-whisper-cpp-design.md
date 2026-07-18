@@ -14,7 +14,7 @@ Run shutupandtype on macOS with the same push-to-talk UX as Linux, and support a
 |-------|--------|
 | Transcription backends | Both: `openai` and `whisper` (whisper.cpp CLI), selectable in config on Linux and macOS |
 | whisper.cpp integration | External process (`whisper-cli`), not CGO/libwhisper |
-| macOS paste | Clipboard only in MVP; auto-paste later |
+| macOS paste | Auto-paste via Cmd+V (System Events / Accessibility) |
 | Model management | User-provided `whisper_model` path now; auto-download later |
 | Repo / binary name | Keep `shutupandtype-x11`; no rename |
 | Structure | Thin `*_linux.go` / `*_darwin.go` files + shared `Transcriber` interface |
@@ -32,7 +32,7 @@ Build with Go filename suffixes (`_linux.go`, `_darwin.go`). Shared orchestratio
 | Hotkey | X11 `GrabKey` (current `grab.go`) | In-process global hotkey (Cmd+Shift+F12); requires Accessibility |
 | Recorder | `ffmpeg -f alsa -i default` | `ffmpeg -f avfoundation -i :0` (default mic) |
 | Clipboard | `xclip` primary + clipboard | `pbcopy` |
-| Paste | `xdotool` Shift+Insert | no-op |
+| Paste | `xdotool` Shift+Insert | `osascript` Cmd+V via System Events |
 | Tray | `getlantern/systray` | same |
 | Single-instance lock | `flock` on lock file under `os.TempDir()` | same |
 
@@ -88,7 +88,7 @@ hotkey press
   → if recording: Recorder.Stop() → path
        → tray Transcribing
        → Transcriber.Transcribe(path)
-       → clipboard (+ Linux paste)
+       → clipboard + paste (Shift+Insert / Cmd+V)
        → tray Done / Error
 ```
 
@@ -122,7 +122,7 @@ hotkey_darwin.go
 clipboard_linux.go
 clipboard_darwin.go
 paste_linux.go          # typeShiftInsert
-paste_darwin.go         # no-op
+paste_darwin.go         # osascript Cmd+V
 ```
 
 Exact names may vary slightly; Linux behavior must remain identical for the openai path.
@@ -142,13 +142,12 @@ Temp audio files: leave as today (no aggressive cleanup required in MVP).
 ## Testing
 
 - Unit: whisper stdout trimming / empty output handling  
-- Manual: Linux `openai` + `whisper`; macOS `whisper` + clipboard-only paste  
+- Manual: Linux `openai` + `whisper`; macOS `whisper` + Cmd+V paste  
 - Confirm Linux Ctrl+Shift+F12 and macOS Cmd+Shift+F12  
 
 ## Out of scope (MVP)
 
 - Auto-download of models  
-- Auto-paste on macOS  
 - Mic device picker / config  
 - Renaming module or binary away from `shutupandtype-x11`  
 - CGO linking to libwhisper  

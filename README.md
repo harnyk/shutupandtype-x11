@@ -9,7 +9,7 @@ Press a hotkey to start recording from your mic. Press it again to stop. Audio i
 | OS | Hotkey | Paste |
 |----|--------|-------|
 | Linux (X11) | **Ctrl+Shift+F12** | auto via Shift+Insert |
-| macOS | **Cmd+Shift+F12** | clipboard only (paste manually) |
+| macOS | **Cmd+Shift+F12** | auto via Cmd+V |
 
 ## Installation
 
@@ -36,7 +36,18 @@ Then:
 CGO_ENABLED=1 go install github.com/harnyk/shutupandtype-x11@latest
 ```
 
-On macOS, grant **Accessibility** (and Microphone) to the terminal or app that runs the binary, or global hotkey registration will fail.
+### macOS app (no Terminal)
+
+Build a menu-bar `.app` into `~/Applications`:
+
+```sh
+task app:open
+```
+
+Or: `task app` then open **ShutUpAndType** from Spotlight / Launchpad.
+
+Grant **Accessibility** and **Microphone** to **ShutUpAndType** (not Terminal) in System Settings → Privacy & Security. Login Items can also start it at login.
+
 
 ## Configuration
 
@@ -51,7 +62,7 @@ timeout: "90s"
 # when backend: whisper
 whisper_bin: whisper-cli
 whisper_model: ~/.config/shutupandtype/models/ggml-small-q5_1.bin
-whisper_language: ru     # empty = auto-detect; ru recommended for Russian
+whisper_language: ru     # empty = auto-detect; set ru/en only if you always speak that language
 ```
 
 | Key | Default | Description |
@@ -62,7 +73,7 @@ whisper_language: ru     # empty = auto-detect; ru recommended for Russian
 | `timeout` | `90s` | Auto-stop recording after this duration |
 | `whisper_bin` | `whisper-cli` | Path or name of whisper.cpp CLI |
 | `whisper_model` | — | Path to ggml model (required for whisper) |
-| `whisper_language` | empty | Language code for whisper-cli; empty = auto |
+| `whisper_language` | empty | Passed as `-l` to whisper-cli; empty means `auto`. Do not omit — whisper-cli’s own default is `en`, which turns non-English into “(speaking in foreign language)” |
 
 The `--timeout` flag overrides the config value at runtime:
 
@@ -82,5 +93,5 @@ shutupandtype-x11
 
 - Press the hotkey → recording starts (tray turns red)
 - Press again → recording stops, transcription begins (tray turns amber)
-- Text is copied to the clipboard (and auto-pasted on Linux); tray turns green
+- Text is copied to the clipboard and auto-pasted into the focused app; tray turns green
 - Tray returns to gray after a few seconds

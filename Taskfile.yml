@@ -13,4 +13,25 @@ tasks:
     cmds:
       - sudo apt remove shutupandtype-x11
       - sudo apt --fix-broken install ./dist/shutupandtype-x11_*.deb
-  
+
+  build:
+    desc: Build local binary (CGO required for tray/hotkey)
+    cmds:
+      - CGO_ENABLED=1 go build -o shutupandtype-x11 .
+
+  run:
+    desc: Build and run locally
+    deps: [build]
+    cmds:
+      - ./shutupandtype-x11
+
+  app:
+    desc: Build and install ~/Applications/ShutUpAndType.app (menu bar, no Terminal)
+    cmds:
+      - bash scripts/macos-app.sh
+
+  app:open:
+    desc: Install .app and launch it
+    deps: [app]
+    cmds:
+      - open "$HOME/Applications/ShutUpAndType.app"
