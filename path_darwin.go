@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -35,14 +36,14 @@ func ensureGUIPath() {
 	os.Setenv("PATH", strings.Join(append(prefix, path), string(os.PathListSeparator)))
 }
 
-// resolveBin returns an absolute path if bin is a bare name found on PATH
-// or under Homebrew prefixes; otherwise returns bin unchanged.
+// resolveBin returns an absolute path if bin is a bare name found on PATH;
+// otherwise returns bin unchanged.
 func resolveBin(bin string) string {
 	bin = strings.TrimSpace(bin)
 	if bin == "" || filepath.IsAbs(bin) || strings.Contains(bin, string(os.PathSeparator)) {
 		return bin
 	}
-	if p, err := lookPath(bin); err == nil {
+	if p, err := exec.LookPath(bin); err == nil {
 		return p
 	}
 	return bin
