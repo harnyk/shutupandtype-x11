@@ -1,18 +1,28 @@
 package main
 
-import (
-	"fmt"
-	"os/exec"
-)
+/*
+#cgo CFLAGS: -x objective-c
+#cgo LDFLAGS: -framework AppKit -framework Foundation -framework CoreGraphics -framework Carbon
+#import <CoreGraphics/CoreGraphics.h>
+#import <Carbon/Carbon.h>
 
-// typeShiftInsert pastes via Cmd+V using System Events (needs Accessibility,
-// already required for the global hotkey).
+static void postCommandV(void) {
+	CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+	CGEventRef down = CGEventCreateKeyboardEvent(src, (CGKeyCode)kVK_ANSI_V, true);
+	CGEventRef up = CGEventCreateKeyboardEvent(src, (CGKeyCode)kVK_ANSI_V, false);
+	CGEventSetFlags(down, kCGEventFlagMaskCommand);
+	CGEventSetFlags(up, kCGEventFlagMaskCommand);
+	CGEventPost(kCGHIDEventTap, down);
+	CGEventPost(kCGHIDEventTap, up);
+	CFRelease(down);
+	CFRelease(up);
+	CFRelease(src);
+}
+*/
+import "C"
+
+// typeShiftInsert pastes via Cmd+V using CGEvent (needs Accessibility).
 func typeShiftInsert() error {
-	err := exec.Command("osascript", "-e",
-		`tell application "System Events" to keystroke "v" using command down`,
-	).Run()
-	if err != nil {
-		return fmt.Errorf("paste (Cmd+V): %w", err)
-	}
+	C.postCommandV()
 	return nil
 }

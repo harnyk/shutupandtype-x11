@@ -10,6 +10,15 @@ import (
 // ensureGUIPath prepends common Homebrew locations so GUI-launched apps
 // (Finder / open / Launchpad) can find whisper-cli and ffmpeg.
 func ensureGUIPath() {
+	// Force UTF-8 so subprocesses / CoreFoundation don't fall back to MacRoman.
+	if os.Getenv("LANG") == "" {
+		os.Setenv("LANG", "en_US.UTF-8")
+	}
+	if os.Getenv("LC_ALL") == "" {
+		os.Setenv("LC_ALL", "en_US.UTF-8")
+	}
+	os.Setenv("__CF_USER_TEXT_ENCODING", "0x0:0x8000100:0")
+
 	extras := []string{
 		"/opt/homebrew/bin",
 		"/usr/local/bin",
