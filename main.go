@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -16,14 +17,27 @@ import (
 )
 
 func main() {
+	ensureGUIPath()
+
 	root := &cobra.Command{
 		Use:   "shutupandtype-x11",
-		Short: "Press Ctrl+Shift+F12 to record and transcribe speech to clipboard",
+		Short: "Hotkey to record and transcribe speech to clipboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initConfig()
+			if err := validateSTTConfig(); err != nil {
+				return err
+			}
 			enforceInstance()
-			go run()
-			systray.Run(onTrayReady, onTrayExit)
+
+			hotkeyCh := make(chan func())
+			unregCh := make(chan func(), 1)
+			go run(hotkeyCh, unregCh)
+			systray.Run(func() {
+				onTrayReady()
+				// Register on the systray main thread (required for macOS CGEventTap).
+				onPress := <-hotkeyCh
+				unregCh <- listenHotkey(onPress)
+			}, onTrayExit)
 			return nil
 		},
 		SilenceUsage: true,
@@ -38,7 +52,8 @@ func main() {
 }
 
 func enforceInstance() {
-	f, err := os.OpenFile("/tmp/shutupandtype.lock", os.O_CREATE|os.O_WRONLY, 0600)
+	path := filepath.Join(os.TempDir(), "shutupandtype.lock")
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		log.Fatalf("cannot open lock file: %v", err)
 	}
@@ -48,9 +63,9 @@ func enforceInstance() {
 	// intentionally not closing — lock held for process lifetime
 }
 
-func run() {
+func run(hotkeyCh chan<- func(), unregCh <-chan func()) {
 	timeout := cfgTimeout()
-	fmt.Printf("Press Ctrl+Shift+F12 to start/stop recording (auto-stop after %s). Ctrl+C to quit.\n", timeout)
+	fmt.Printf("Press %s to start/stop recording (auto-stop after %s). Ctrl+C to quit.\n", hotkeyLabel(), timeout)
 
 	var (
 		rec       Recorder
@@ -118,7 +133,7 @@ func run() {
 	}
 
 	onPress := func() {
-		fmt.Printf("[%s] Ctrl+Shift+F12\n", timestamp())
+		fmt.Printf("[%s] %s\n", timestamp(), hotkeyLabel())
 		mu.Lock()
 		if !recording {
 			recording = true
@@ -148,7 +163,8 @@ func run() {
 		}
 	}
 
-	unregister := listenHotkey(onPress)
+	hotkeyCh <- onPress
+	unregister := <-unregCh
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

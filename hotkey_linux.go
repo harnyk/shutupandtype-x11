@@ -62,7 +62,7 @@ func listenHotkey(onPress func()) (unregister func()) {
 		}
 	}
 
-	log.Println("hotkey: Ctrl+Shift+F12 registered")
+	log.Println("hotkey:", hotkeyLabel(), "registered")
 
 	done := make(chan struct{})
 

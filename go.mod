@@ -8,6 +8,7 @@ require (
 	github.com/jezek/xgbutil v0.0.0-20260124183602-9fd151d6a51a
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	golang.design/x/hotkey v0.6.1
 )
 
 require (

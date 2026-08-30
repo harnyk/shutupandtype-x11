@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/png"
 	"math"
+	"runtime"
 
 	"github.com/getlantern/systray"
 )
@@ -72,6 +73,16 @@ func circleIcon(r, g, b uint8) []byte {
 func onTrayReady() {
 	initTrayIcons()
 	setTrayState(StateIdle)
+
+	if runtime.GOOS == "darwin" {
+		mPerm := systray.AddMenuItem("Privacy settings…", "Open Accessibility + Input Monitoring")
+		go func() {
+			for range mPerm.ClickedCh {
+				openPrivacySettings()
+			}
+		}()
+		systray.AddSeparator()
+	}
 
 	mQuit := systray.AddMenuItem("Quit", "Stop shutupandtype")
 	go func() {
