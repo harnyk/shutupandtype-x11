@@ -2,12 +2,16 @@ package main
 
 import (
 	"log"
+	"time"
 
-	"github.com/jezek/xgb"
 	"github.com/jezek/xgb/xproto"
 	"github.com/jezek/xgbutil"
 	"github.com/jezek/xgbutil/keybind"
 )
+
+// debounceWindow guards against switch bounce on flaky macro keys: presses
+// within this window of the last accepted trigger are ignored.
+const debounceWindow = 300 * time.Millisecond
 
 // hotkeyCombo is the hotkey we register: Ctrl+Shift+F12.
 // keysym 0xffc9 = XK_F12.
@@ -68,42 +72,41 @@ func listenHotkey(onPress func()) (unregister func()) {
 
 	go func() {
 		defer close(done)
-		var pending xgb.Event
+		down := false
+		var lastTrigger time.Time
 		for {
-			var ev xgb.Event
-			if pending != nil {
-				ev = pending
-				pending = nil
-			} else {
-				var xerr xgb.Error
-				ev, xerr = xu.Conn().WaitForEvent()
-				if xerr != nil {
-					log.Printf("hotkey: X11 error: %v", xerr)
-					continue
-				}
-				if ev == nil {
-					return // connection closed — clean exit
-				}
+			ev, xerr := xu.Conn().WaitForEvent()
+			if xerr != nil {
+				log.Printf("hotkey: X11 error: %v", xerr)
+				continue
+			}
+			if ev == nil {
+				return // connection closed — clean exit
 			}
 
 			switch e := ev.(type) {
-			case xproto.KeyReleaseEvent:
+			case xproto.KeyPressEvent:
 				if !containsCode(codes, e.Detail) {
 					break
 				}
-				// Skip auto-repeat: a KeyRelease immediately followed by
-				// a KeyPress for the same key is a synthetic repeat pair.
-				next, _ := xu.Conn().PollForEvent()
-				if kp, ok := next.(xproto.KeyPressEvent); ok && kp.Detail == e.Detail {
-					break // it's a repeat — ignore both
+				if down {
+					break // auto-repeat — ignore until released
 				}
-				if next != nil {
-					pending = next
+				down = true
+
+				now := time.Now()
+				if now.Sub(lastTrigger) < debounceWindow {
+					break // debounced — likely switch bounce
 				}
 
 				// Check modifiers: require Ctrl+Shift, ignore the rest.
 				if e.State&hotkeyMods == hotkeyMods {
+					lastTrigger = now
 					onPress()
+				}
+			case xproto.KeyReleaseEvent:
+				if containsCode(codes, e.Detail) {
+					down = false
 				}
 			}
 		}
