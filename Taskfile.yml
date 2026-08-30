@@ -8,11 +8,12 @@ tasks:
 
   install:
     desc: Install the latest snapshot deb with apt (resolves dependencies)
-    deps:
-      - snapshot
     cmds:
-      - sudo apt remove shutupandtype-x11
-      - sudo apt --fix-broken install ./dist/shutupandtype-x11_*.deb
+      - sudo -v
+      - task: snapshot
+      - dpkg -s shutupandtype-x11 >/dev/null 2>&1 && sudo apt remove -y shutupandtype-x11 || true
+      - sudo dpkg -i ./dist/shutupandtype-x11_*.deb || true
+      - sudo apt --fix-broken install -y
 
   build:
     desc: Build local binary (CGO required for tray/hotkey)
