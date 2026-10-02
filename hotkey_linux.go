@@ -66,7 +66,8 @@ func listenHotkey(onPress func()) (unregister func()) {
 		}
 	}
 
-	actionNotify(nil, trayReadyTooltip(), "hotkey: %s registered", hotkeyLabel())
+	eventLogf("hotkey: %s registered", hotkeyLabel())
+	resetTrayIdle()
 
 	done := make(chan struct{})
 

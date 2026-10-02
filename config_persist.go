@@ -3,9 +3,12 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/spf13/viper"
 )
+
+var viperMu sync.RWMutex
 
 func shutupandtypeConfigPath() string {
 	home, err := os.UserHomeDir()
@@ -15,7 +18,7 @@ func shutupandtypeConfigPath() string {
 	return filepath.Join(home, ".config", "shutupandtype", "config.yaml")
 }
 
-func persistViperConfig() error {
+func persistViperConfigUnlocked() error {
 	path := viper.ConfigFileUsed()
 	if path == "" {
 		path = shutupandtypeConfigPath()
@@ -31,4 +34,17 @@ func persistViperConfig() error {
 		return viper.WriteConfig()
 	}
 	return viper.SafeWriteConfigAs(path)
+}
+
+func persistViperConfig() error {
+	viperMu.Lock()
+	defer viperMu.Unlock()
+	return persistViperConfigUnlocked()
+}
+
+func setSmartModeAndPersist(enable bool) error {
+	viperMu.Lock()
+	defer viperMu.Unlock()
+	viper.Set("smart_mode", enable)
+	return persistViperConfigUnlocked()
 }

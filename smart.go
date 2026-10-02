@@ -31,7 +31,7 @@ func newSmartTransformerFromConfig() (SmartTransformer, error) {
 		return nil, fmt.Errorf("smart LLM API key not configured")
 	}
 	return &openAICompatSmartTransformer{
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Timeout: cfgSmartLLMHTTPTimeout()},
 		chatURL:    chatURL,
 		apiKey:     key,
 		model:      cfgSmartLLMModel(),

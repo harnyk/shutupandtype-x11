@@ -104,7 +104,9 @@ func onTrayReady() {
 	}
 	go func() {
 		for range mSmart.ClickedCh {
-			if mSmart.Checked() {
+			// Checked() is the pre-click state; the user toggles to the opposite.
+			enable := !mSmart.Checked()
+			if enable {
 				if !smartModeCanEnable() {
 					mSmart.Uncheck()
 					actionNotifyError(
@@ -112,17 +114,25 @@ func onTrayReady() {
 						"smart mode: no API key configured")
 					continue
 				}
-				viper.Set("smart_mode", true)
+				mSmart.Check()
 			} else {
-				viper.Set("smart_mode", false)
+				mSmart.Uncheck()
 			}
-			if err := persistViperConfig(); err != nil {
+			if err := setSmartModeAndPersist(enable); err != nil {
+				viperMu.Lock()
+				viper.Set("smart_mode", !enable)
+				viperMu.Unlock()
+				if enable {
+					mSmart.Uncheck()
+				} else {
+					mSmart.Check()
+				}
 				actionNotifyError(
 					"Could not save smart_mode to config: "+err.Error(),
 					"persist config: %v", err)
 				continue
 			}
-			if cfgSmartMode() {
+			if enable {
 				actionNotify(nil, "Smart mode on", "smart mode enabled")
 			} else {
 				actionNotify(nil, "Smart mode off", "smart mode disabled")
