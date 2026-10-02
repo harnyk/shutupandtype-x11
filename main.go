@@ -65,7 +65,8 @@ func enforceInstance() {
 
 func run(hotkeyCh chan<- func(), unregCh <-chan func()) {
 	timeout := cfgTimeout()
-	fmt.Printf("Press %s to start/stop recording (auto-stop after %s). Ctrl+C to quit.\n", hotkeyLabel(), timeout)
+	actionNotify(nil, fmt.Sprintf("Ready — %s (auto-stop %s)", hotkeyLabel(), timeout),
+		"Press %s to start/stop recording (auto-stop after %s). Ctrl+C to quit.", hotkeyLabel(), timeout)
 
 	var (
 		rec       Recorder
@@ -80,6 +81,7 @@ func run(hotkeyCh chan<- func(), unregCh <-chan func()) {
 		if !recording {
 			return
 		}
+		setTrayAction(StateTranscribing, "Stopping recording…")
 		if timer != nil {
 			timer.Stop()
 			timer = nil
@@ -87,14 +89,10 @@ func run(hotkeyCh chan<- func(), unregCh <-chan func()) {
 		recording = false
 		path, err := rec.Stop()
 		if err != nil {
-			log.Printf("recorder stop: %v", err)
-			setTrayState(StateError)
-			setTrayTooltip("Recording failed: " + err.Error())
+			actionNotifyError("Recording failed: "+err.Error(), "recorder stop: %v", err)
 			return
 		}
-		fmt.Println(path)
-		setTrayState(StateTranscribing)
-		setTrayTooltip("Transcribing…")
+		actionNotify(ptrTray(StateTranscribing), "Transcribing…", "audio: %s", path)
 		go func() {
 			text, err := transcribe(path)
 			resetIfIdle := func(d time.Duration) {
@@ -103,71 +101,68 @@ func run(hotkeyCh chan<- func(), unregCh <-chan func()) {
 					idle := !recording
 					mu.Unlock()
 					if idle {
-						setTrayState(StateIdle)
+						resetTrayIdle()
 					}
 				})
 			}
 			if err != nil {
-				log.Printf("transcribe: %v", err)
-				setTrayState(StateError)
-				setTrayTooltip("Transcription failed: " + err.Error())
+				actionNotifyError("Transcription failed: "+err.Error(), "transcribe: %v", err)
 				resetIfIdle(4 * time.Second)
 				return
 			}
 			text = strings.TrimSpace(text)
-			fmt.Println(text)
+			actionNotify(ptrTray(StateTranscribing), "Transcript: "+preview(text), "transcript: %s", text)
 			rawText := text
 			if cfgSmartMode() {
 				setTrayTooltip("Smart edit…")
 				smartOut, smartErr := smartTransform(rawText)
 				if smartErr != nil {
-					log.Printf("smart: %v", smartErr)
-					setTrayState(StateError)
-					setTrayTooltip("Smart edit failed (using raw transcript): " + smartErr.Error())
+					actionNotifyError(
+						"Smart edit failed (using raw transcript): "+smartErr.Error(),
+						"smart: %v", smartErr)
 					text = rawText
 				} else {
 					text = strings.TrimSpace(smartOut)
-					fmt.Println(text)
+					actionNotify(ptrTray(StateTranscribing), "Smart: "+preview(text), "transcript (smart): %s", text)
 				}
 			}
+			setTrayTooltip("Copying to clipboard…")
 			if err := toClipboard(text); err != nil {
-				log.Printf("clipboard: %v", err)
-				setTrayState(StateError)
-				setTrayTooltip("Clipboard error: " + err.Error())
+				actionNotifyError("Clipboard error: "+err.Error(), "clipboard: %v", err)
 				resetIfIdle(4 * time.Second)
 				return
 			}
+			setTrayTooltip("Pasting…")
 			if err := typeShiftInsert(); err != nil {
-				log.Printf("typeShiftInsert: %v", err)
+				actionNotifyError("Paste failed: "+err.Error(), "typeShiftInsert: %v", err)
+				resetIfIdle(4 * time.Second)
+				return
 			}
-			setTrayState(StateDone)
-			setTrayTooltip("Typed: " + preview(text))
+			actionNotifyTyped(text)
 			resetIfIdle(3 * time.Second)
 		}()
 	}
 
 	onPress := func() {
-		fmt.Printf("[%s] %s\n", timestamp(), hotkeyLabel())
+		actionNotify(nil, "Hotkey "+hotkeyLabel(), "hotkey %s", hotkeyLabel())
 		mu.Lock()
 		if !recording {
 			recording = true
 			mu.Unlock()
 			if err := rec.Start(); err != nil {
-				log.Printf("recorder start: %v", err)
-				setTrayState(StateError)
-				setTrayTooltip("Recording failed to start: " + err.Error())
-				time.AfterFunc(4*time.Second, func() { setTrayState(StateIdle) })
+				actionNotifyError("Recording failed to start: "+err.Error(), "recorder start: %v", err)
+				time.AfterFunc(4*time.Second, func() { resetTrayIdle() })
 				mu.Lock()
 				recording = false
 				mu.Unlock()
 				return
 			}
-			setTrayState(StateRecording)
-			setTrayTooltip(fmt.Sprintf("Recording… (auto-stop in %s)", timeout))
-			fmt.Printf("[%s] Recording started (auto-stop in %s)\n", timestamp(), timeout)
+			actionNotify(ptrTray(StateRecording),
+				fmt.Sprintf("Recording… (auto-stop in %s)", timeout),
+				"recording started (auto-stop in %s)", timeout)
 			mu.Lock()
 			timer = time.AfterFunc(timeout, func() {
-				fmt.Printf("[%s] Auto-stop timeout reached\n", timestamp())
+				actionNotify(nil, "Auto-stop timeout reached", "auto-stop timeout reached")
 				stopRecording()
 			})
 			mu.Unlock()
@@ -183,9 +178,13 @@ func run(hotkeyCh chan<- func(), unregCh <-chan func()) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	fmt.Println("\nStopping.")
+	actionNotify(nil, "Stopping", "stopping")
 	unregister()
 	systray.Quit()
+}
+
+func ptrTray(s TrayState) *TrayState {
+	return &s
 }
 
 func timestamp() string {

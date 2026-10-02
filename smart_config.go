@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 
@@ -34,7 +33,7 @@ func cfgSmartMarkers() smartMarkers {
 	}
 	var m smartMarkers
 	if err := viper.UnmarshalKey("smart_markers", &m); err != nil {
-		log.Printf("smart_markers config: %v; using defaults", err)
+		eventLogf("smart_markers config: %v; using defaults", err)
 		return def
 	}
 	if len(m.Code) == 0 {
@@ -89,12 +88,12 @@ func normalizeSmartConfig() {
 		return
 	}
 	if effectiveSmartLLMAPIKey() == "" {
-		log.Printf("smart_mode is enabled but no smart_llm_api_key or openai_api_key; disabling smart mode")
+		eventLogf("smart_mode is enabled but no smart_llm_api_key or openai_api_key; disabling smart mode")
 		viper.Set("smart_mode", false)
 		return
 	}
 	if _, err := smartLLMChatCompletionsURL(cfgSmartLLMBaseURL()); err != nil {
-		log.Printf("smart_llm_base_url invalid: %v; disabling smart mode", err)
+		eventLogf("smart_llm_base_url invalid: %v; disabling smart mode", err)
 		viper.Set("smart_mode", false)
 	}
 }

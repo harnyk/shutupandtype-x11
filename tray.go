@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"log"
 	"math"
 	"runtime"
 
@@ -45,6 +44,19 @@ func setTrayTooltip(text string) {
 	systray.SetTooltip(text)
 }
 
+func trayReadyTooltip() string {
+	return "Ready — " + hotkeyLabel()
+}
+
+func setTrayAction(state TrayState, tooltip string) {
+	setTrayState(state)
+	setTrayTooltip(tooltip)
+}
+
+func resetTrayIdle() {
+	setTrayAction(StateIdle, trayReadyTooltip())
+}
+
 func circleIcon(r, g, b uint8) []byte {
 	const size = 22
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
@@ -74,7 +86,7 @@ func circleIcon(r, g, b uint8) []byte {
 
 func onTrayReady() {
 	initTrayIcons()
-	setTrayState(StateIdle)
+	resetTrayIdle()
 
 	if runtime.GOOS == "darwin" {
 		mPerm := systray.AddMenuItem("Privacy settings…", "Open Accessibility + Input Monitoring")
@@ -95,8 +107,9 @@ func onTrayReady() {
 			if mSmart.Checked() {
 				if !smartModeCanEnable() {
 					mSmart.Uncheck()
-					setTrayTooltip("Smart mode needs smart_llm_api_key or openai_api_key")
-					setTrayState(StateError)
+					actionNotifyError(
+						"Smart mode needs smart_llm_api_key or openai_api_key",
+						"smart mode: no API key configured")
 					continue
 				}
 				viper.Set("smart_mode", true)
@@ -104,15 +117,15 @@ func onTrayReady() {
 				viper.Set("smart_mode", false)
 			}
 			if err := persistViperConfig(); err != nil {
-				log.Printf("persist config: %v", err)
-				setTrayTooltip("Could not save smart_mode to config: " + err.Error())
-				setTrayState(StateError)
+				actionNotifyError(
+					"Could not save smart_mode to config: "+err.Error(),
+					"persist config: %v", err)
 				continue
 			}
 			if cfgSmartMode() {
-				setTrayTooltip("Smart mode on")
+				actionNotify(nil, "Smart mode on", "smart mode enabled")
 			} else {
-				setTrayTooltip("Smart mode off")
+				actionNotify(nil, "Smart mode off", "smart mode disabled")
 			}
 		}
 	}()

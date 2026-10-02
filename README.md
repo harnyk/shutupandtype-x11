@@ -86,6 +86,8 @@ When **Smart mode** is enabled (tray menu checkbox; persisted in config), each t
 
 **Privacy:** while smart mode is on, the **full transcript** is sent to whatever host you configure—not only OpenAI.
 
+On macOS and Linux (with `notify-send`), **errors** and successfully **typed text** also appear as short system notifications; other steps stay in the log and menu bar tooltip (tooltip shows on hover only).
+
 Example (local compatible server):
 
 ```yaml

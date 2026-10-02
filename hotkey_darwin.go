@@ -22,7 +22,6 @@ static int isAXTrusted(void) {
 */
 import "C"
 import (
-	"log"
 	"os/exec"
 	"sync"
 	"time"
@@ -66,7 +65,7 @@ func listenHotkey(onPress func()) (unregister func()) {
 		}
 		hk := hotkey.New([]hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift}, hotkey.KeyF12)
 		if err := hk.Register(); err != nil {
-			log.Printf("hotkey: register %s failed: %v", hotkeyLabel(), err)
+			eventLogf("hotkey: register %s failed: %v", hotkeyLabel(), err)
 			return false
 		}
 		active = hk
@@ -77,15 +76,14 @@ func listenHotkey(onPress func()) (unregister func()) {
 				onPress()
 			}
 		}(hk, done)
-		log.Println("hotkey:", hotkeyLabel(), "registered")
-		setTrayState(StateIdle)
-		setTrayTooltip("Ready — " + hotkeyLabel())
+		actionNotify(nil, trayReadyTooltip(), "hotkey: %s registered", hotkeyLabel())
 		return true
 	}
 
 	if !tryRegister() {
-		setTrayState(StateError)
-		setTrayTooltip("Orange = no hotkey. Enable ShutUpAndType in Accessibility AND Input Monitoring")
+		msg := "Orange = no hotkey. Enable ShutUpAndType in Accessibility AND Input Monitoring"
+		setTrayAction(StateError, msg)
+		showNotification("ShutUpAndType", msg)
 		openPrivacySettings()
 		go func() {
 			t := time.NewTicker(2 * time.Second)
