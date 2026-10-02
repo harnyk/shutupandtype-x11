@@ -74,6 +74,26 @@ whisper_language: ru     # empty = auto-detect; set ru/en only if you always spe
 | `whisper_bin` | `whisper-cli` | Path or name of whisper.cpp CLI |
 | `whisper_model` | — | Path to ggml model (required for whisper) |
 | `whisper_language` | empty | Passed as `-l` to whisper-cli; empty means `auto`. Do not omit — whisper-cli’s own default is `en`, which turns non-English into “(speaking in foreign language)” |
+| `smart_mode` | `false` | Tray-toggleable; LLM post-process after STT |
+| `smart_llm_base_url` | `https://api.openai.com/v1` | OpenAI-compatible API root (includes `/v1`) |
+| `smart_llm_api_key` | empty | Bearer token for smart mode; falls back to `openai_api_key` |
+| `smart_llm_model` | `gpt-4o-mini` | Chat completions model id for your endpoint |
+| `smart_markers` | built-in defaults | Spoken phrases for code / verbatim / prose modes (see spec) |
+
+### Smart mode
+
+When **Smart mode** is enabled (tray menu checkbox; persisted in config), each transcript is sent to an **OpenAI-compatible** `POST …/chat/completions` endpoint for punctuation, light editing, and code/symbol recovery. You can use OpenAI or any compatible server (local LM Studio, Groq, etc.) via `smart_llm_base_url`.
+
+**Privacy:** while smart mode is on, the **full transcript** is sent to whatever host you configure—not only OpenAI.
+
+Example (local compatible server):
+
+```yaml
+smart_mode: true
+smart_llm_base_url: http://127.0.0.1:1234/v1
+smart_llm_model: your-model-id
+# smart_llm_api_key: "..."   # optional if openai_api_key is set
+```
 
 The `--timeout` flag overrides the config value at runtime:
 

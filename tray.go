@@ -5,10 +5,12 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"log"
 	"math"
 	"runtime"
 
 	"github.com/getlantern/systray"
+	"github.com/spf13/viper"
 )
 
 type TrayState int
@@ -83,6 +85,38 @@ func onTrayReady() {
 		}()
 		systray.AddSeparator()
 	}
+
+	mSmart := systray.AddMenuItemCheckbox("Smart mode", "LLM post-process after transcription", cfgSmartMode())
+	if !smartModeCanEnable() {
+		mSmart.Disable()
+	}
+	go func() {
+		for range mSmart.ClickedCh {
+			if mSmart.Checked() {
+				if !smartModeCanEnable() {
+					mSmart.Uncheck()
+					setTrayTooltip("Smart mode needs smart_llm_api_key or openai_api_key")
+					setTrayState(StateError)
+					continue
+				}
+				viper.Set("smart_mode", true)
+			} else {
+				viper.Set("smart_mode", false)
+			}
+			if err := persistViperConfig(); err != nil {
+				log.Printf("persist config: %v", err)
+				setTrayTooltip("Could not save smart_mode to config: " + err.Error())
+				setTrayState(StateError)
+				continue
+			}
+			if cfgSmartMode() {
+				setTrayTooltip("Smart mode on")
+			} else {
+				setTrayTooltip("Smart mode off")
+			}
+		}
+	}()
+	systray.AddSeparator()
 
 	mQuit := systray.AddMenuItem("Quit", "Stop shutupandtype")
 	go func() {

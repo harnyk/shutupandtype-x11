@@ -28,6 +28,9 @@ func initConfig() {
 	viper.SetDefault("backend", "openai")
 	viper.SetDefault("whisper_bin", "whisper-cli")
 	viper.SetDefault("whisper_language", "")
+	viper.SetDefault("smart_mode", false)
+	viper.SetDefault("smart_llm_base_url", "https://api.openai.com/v1")
+	viper.SetDefault("smart_llm_model", "gpt-4o-mini")
 
 	// Allow env var overrides (e.g. OPENAI_API_KEY still works).
 	viper.AutomaticEnv()
@@ -37,6 +40,7 @@ func initConfig() {
 			log.Fatalf("config error: %v", err)
 		}
 	}
+	normalizeSmartConfig()
 }
 
 func cfgTimeout() time.Duration {

@@ -16,7 +16,7 @@ After speech-to-text, optionally run a **smart** pass that (1) edits prose like 
 | Mode markers | **D:** YAML-configured trigger phrases + LLM fuzzy matching for STT errors/synonyms |
 | Smart activation | **C:** Off by default; tray menu toggle; persist `smart_mode` to config across restarts |
 | Pipeline shape | **Approach 1:** Single LLM chat completion after STT (no two-step segment pipeline in v1) |
-| LLM provider (v1) | OpenAI Chat Completions, same `openai_api_key` as STT |
+| LLM provider (v1) | **OpenAI-compatible** Chat Completions (`POST …/chat/completions`); configurable `smart_llm_base_url`; not limited to api.openai.com |
 | STT backends | Unchanged (`openai` \| `whisper`); smart step is text-only and independent of STT backend |
 | LLM failure | Fall back to raw STT text; tray shows error tooltip (do not drop dictation) |
 | Output format | Plain text only—no markdown fences, no “Here is the text:” preamble |
@@ -36,7 +36,7 @@ Hotkey → Record → STT → [smart_mode off] → trim → clipboard → paste
 | `SmartTransformer` (new) | Raw transcript → final string per mode rules + markers |
 | `main.run` | After successful STT, call transformer when `smart_mode` enabled |
 | Tray menu | Checkbox “Smart mode”; writes `smart_mode` to config file on toggle |
-| Config | `smart_mode`, `openai_model_smart`, `smart_markers`, validation when smart enabled |
+| Config | `smart_mode`, `smart_llm_base_url`, `smart_llm_api_key`, `smart_llm_model`, `smart_markers`, validation when smart enabled |
 
 Optional tray state: reuse `StateTranscribing` with tooltip **“Smart edit…”** after STT completes and before clipboard, or add `StateSmartEdit` (amber)—implementation may choose minimal diff (tooltip only).
 
@@ -54,12 +54,13 @@ Markers are **stripped** from output. Text before the first marker uses **prose*
 
 ```yaml
 smart_mode: false
-openai_model_smart: gpt-4o-mini
+smart_llm_base_url: https://api.openai.com/v1
+smart_llm_api_key: ""              # optional; falls back to openai_api_key when empty
+smart_llm_model: gpt-4o-mini
 
 smart_markers:
   code:
-    - "режим код"
-    - "mode code"
+    - "enable coding mode"
   verbatim:
     - "дословно"
     - "verbatim"
@@ -73,10 +74,21 @@ smart_markers:
 
 ## LLM integration
 
+### OpenAI-compatible API
+
+Smart mode uses the **Chat Completions** JSON shape (request/response fields compatible with OpenAI’s API). The server may be OpenAI, a proxy, Groq, local LM Studio, vLLM, etc.—as long as it exposes the same path and response schema.
+
+- **`smart_llm_base_url`:** API root including `/v1` (default `https://api.openai.com/v1`). Trim trailing slashes before joining paths.
+- **URL:** `{smart_llm_base_url}/chat/completions`
+- **Auth:** `Authorization: Bearer <key>` where key is `smart_llm_api_key` if non-empty, else `openai_api_key` (lets OpenAI users reuse one key for STT + smart without duplicating YAML).
+- **`smart_llm_model`:** model id understood by that server (default `gpt-4o-mini`).
+
+Do not hardcode `api.openai.com` in code paths other than the default base URL.
+
 ### Request
 
-- **Endpoint:** `POST https://api.openai.com/v1/chat/completions`
-- **Model:** `openai_model_smart` (default `gpt-4o-mini`)
+- **Method:** `POST` to computed chat completions URL above
+- **Model:** `smart_llm_model`
 - **Messages:**
   - **System:** Mode definitions, marker list, strict output rules (plain text only, no markers, code mode rules, prose default).
   - **User:** Raw STT transcript (single block).
@@ -101,10 +113,11 @@ smart_markers:
 | Condition | Rule |
 |-----------|------|
 | `smart_mode: false` | No LLM validation required at startup |
-| User enables smart (tray) | If `openai_api_key` missing → disable toggle / show tray error; do not enable |
+| User enables smart (tray) | If effective API key missing (`smart_llm_api_key` or fallback `openai_api_key`) → disable toggle / show tray error; do not enable |
 | `smart_mode: true` in file | Same as above at startup; if invalid, log warning and force smart off |
+| `smart_llm_base_url` | Non-empty, parseable URL; default `https://api.openai.com/v1` |
 
-`openai_model_smart` default: `gpt-4o-mini`.
+Defaults: `smart_llm_model` → `gpt-4o-mini`; `smart_llm_base_url` → `https://api.openai.com/v1`.
 
 ## Tray UX
 
@@ -114,8 +127,8 @@ smart_markers:
 
 ## Privacy & latency
 
-- Smart mode sends **full transcript** to OpenAI on every completed recording while enabled.
-- README must state this clearly next to smart mode docs.
+- Smart mode sends **full transcript** to the configured LLM endpoint on every completed recording while enabled (may be third-party or self-hosted).
+- README must state this clearly (endpoint is user-configured; data leaves the machine to that host).
 - Expected added latency: one chat round-trip (typically sub-second to a few seconds on mini models).
 
 ## Error handling & observability
@@ -130,25 +143,26 @@ smart_markers:
 |-------|----------|
 | Unit | `SmartTransformer` with injected HTTP client / mock OpenAI response: prose cleanup, code recovery fixture, marker stripping |
 | Config | Marker defaults merge; persist `smart_mode` round-trip (test with temp config dir) |
-| Manual | Mixed RU utterance with “режим код” + dictated JS snippet; toggle persistence across restart |
+| Manual | Mixed utterance with “enable coding mode” + dictated JS snippet; toggle persistence across restart |
 
 No live API calls in CI.
 
 ## Out of scope (v1)
 
-- Non-OpenAI LLM providers (Anthropic, local Ollama)
+- Native non–OpenAI-compatible APIs (e.g. Anthropic Messages without an OpenAI-compat gateway)
+- Ollama/other servers that only expose non-compatible routes (user must point at an OpenAI-compat base URL if available)
 - Two-pass LLM (segment JSON then transform)
 - Context from focused app / open file / clipboard
 - Separate hotkey for smart vs plain (tray-only toggle)
-- Auto-download or local LLM
+- Auto-download or bundling an LLM with the app (user runs their own OpenAI-compat server)
 
 ## Example
 
 **STT raw (illustrative):**  
-`Напиши пожалуйста режим код console dot log open brace resource colon stacks open bracket zero close bracket dot vpc dot id question question unknown close brace close paren`
+`Please enable coding mode console dot log open brace resource colon stacks open bracket zero close bracket dot vpc dot id question question unknown close brace close paren`
 
 **Expected paste (smart on, code segment):**  
-`Напиши пожалуйста console.log({resource: stacks[0].Vpc.Id ?? '<unknown>'})`  
+`Please console.log({resource: stacks[0].Vpc.Id ?? '<unknown>'})`  
 (with prose part polished per rules—exact polish left to model within guardrails)
 
 ## References

@@ -116,6 +116,20 @@ func run(hotkeyCh chan<- func(), unregCh <-chan func()) {
 			}
 			text = strings.TrimSpace(text)
 			fmt.Println(text)
+			rawText := text
+			if cfgSmartMode() {
+				setTrayTooltip("Smart edit…")
+				smartOut, smartErr := smartTransform(rawText)
+				if smartErr != nil {
+					log.Printf("smart: %v", smartErr)
+					setTrayState(StateError)
+					setTrayTooltip("Smart edit failed (using raw transcript): " + smartErr.Error())
+					text = rawText
+				} else {
+					text = strings.TrimSpace(smartOut)
+					fmt.Println(text)
+				}
+			}
 			if err := toClipboard(text); err != nil {
 				log.Printf("clipboard: %v", err)
 				setTrayState(StateError)
