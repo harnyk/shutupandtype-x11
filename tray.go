@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/getlantern/systray"
+	"github.com/spf13/viper"
 )
 
 type TrayState int
@@ -43,6 +44,19 @@ func setTrayTooltip(text string) {
 	systray.SetTooltip(text)
 }
 
+func trayReadyTooltip() string {
+	return "Ready — " + hotkeyLabel()
+}
+
+func setTrayAction(state TrayState, tooltip string) {
+	setTrayState(state)
+	setTrayTooltip(tooltip)
+}
+
+func resetTrayIdle() {
+	setTrayAction(StateIdle, trayReadyTooltip())
+}
+
 func circleIcon(r, g, b uint8) []byte {
 	const size = 22
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
@@ -72,7 +86,7 @@ func circleIcon(r, g, b uint8) []byte {
 
 func onTrayReady() {
 	initTrayIcons()
-	setTrayState(StateIdle)
+	resetTrayIdle()
 
 	if runtime.GOOS == "darwin" {
 		mPerm := systray.AddMenuItem("Privacy settings…", "Open Accessibility + Input Monitoring")
@@ -83,6 +97,49 @@ func onTrayReady() {
 		}()
 		systray.AddSeparator()
 	}
+
+	mSmart := systray.AddMenuItemCheckbox("Smart mode", "LLM post-process after transcription", cfgSmartMode())
+	if !smartModeCanEnable() {
+		mSmart.Disable()
+	}
+	go func() {
+		for range mSmart.ClickedCh {
+			// Checked() is the pre-click state; the user toggles to the opposite.
+			enable := !mSmart.Checked()
+			if enable {
+				if !smartModeCanEnable() {
+					mSmart.Uncheck()
+					actionNotifyError(
+						"Smart mode needs smart_llm_api_key or openai_api_key",
+						"smart mode: no API key configured")
+					continue
+				}
+				mSmart.Check()
+			} else {
+				mSmart.Uncheck()
+			}
+			if err := setSmartModeAndPersist(enable); err != nil {
+				viperMu.Lock()
+				viper.Set("smart_mode", !enable)
+				viperMu.Unlock()
+				if enable {
+					mSmart.Uncheck()
+				} else {
+					mSmart.Check()
+				}
+				actionNotifyError(
+					"Could not save smart_mode to config: "+err.Error(),
+					"persist config: %v", err)
+				continue
+			}
+			if enable {
+				actionNotify(nil, "Smart mode on", "smart mode enabled")
+			} else {
+				actionNotify(nil, "Smart mode off", "smart mode disabled")
+			}
+		}
+	}()
+	systray.AddSeparator()
 
 	mQuit := systray.AddMenuItem("Quit", "Stop shutupandtype")
 	go func() {

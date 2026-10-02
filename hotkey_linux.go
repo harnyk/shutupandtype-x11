@@ -66,7 +66,8 @@ func listenHotkey(onPress func()) (unregister func()) {
 		}
 	}
 
-	log.Println("hotkey:", hotkeyLabel(), "registered")
+	eventLogf("hotkey: %s registered", hotkeyLabel())
+	resetTrayIdle()
 
 	done := make(chan struct{})
 
@@ -77,7 +78,7 @@ func listenHotkey(onPress func()) (unregister func()) {
 		for {
 			ev, xerr := xu.Conn().WaitForEvent()
 			if xerr != nil {
-				log.Printf("hotkey: X11 error: %v", xerr)
+				eventLogf("hotkey: X11 error: %v", xerr)
 				continue
 			}
 			if ev == nil {
